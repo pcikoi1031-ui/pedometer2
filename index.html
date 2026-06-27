@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="歩数計">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>歩数計</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Bebas+Neue&display=swap');
+
+    :root {
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --card: #16213e;
+      --accent: #4fc3f7;
+      --accent2: #a78bfa;
+      --text: #e8eaf6;
+      --sub: #7986cb;
+      --danger: #ef5350;
+      --success: #66bb6a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 16px 20px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(79,195,247,0.15);
+    }
+
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 3px;
+      color: var(--accent);
+    }
+
+    .date-label {
+      font-size: 0.75rem;
+      color: var(--sub);
+      letter-spacing: 1px;
+    }
+
+    .main-card {
+      margin: 24px 20px 16px;
+      background: var(--card);
+      border-radius: 24px;
+      padding: 32px 24px;
+      text-align: center;
+      border: 1px solid rgba(79,195,247,0.12);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .main-card::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(79,195,247,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .ring-wrap {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 20px;
+    }
+
+    .ring-wrap svg {
+      transform: rotate(-90deg);
+      width: 100%; height: 100%;
+    }
+
+    .ring-bg { fill: none; stroke: rgba(79,195,247,0.1); stroke-width: 10; }
+    .ring-fill {
+      fill: none;
+      stroke: url(#ringGrad);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 565;
+      stroke-dashoffset: 565;
+      transition: stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1);
+    }
+
+    .ring-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .step-count {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 4rem;
+      line-height: 1;
+      color: var(--text);
+      letter-spacing: 2px;
+    }
+
+    .step-label {
+      font-size: 0.7rem;
+      color: var(--sub);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+
+    .goal-text {
+      font-size: 0.75rem;
+      color: var(--sub);
+      margin-bottom: 4px;
+    }
+
+    .goal-text span { color: var(--accent); }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin: 0 20px 16px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 14px 10px;
+      text-align: center;
+      border: 1px solid rgba(79,195,247,0.08);
+    }
+
+    .stat-icon { font-size: 1.4rem; margin-bottom: 4px; }
+    .stat-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .stat-unit { font-size: 0.6rem; color: var(--sub); }
+    .stat-name { font-size: 0.65rem; color: var(--sub); margin-top: 2px; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin: 0 20px 20px;
+    }
+
+    .btn {
+      flex: 1;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+      letter-spacing: 1px;
+    }
+
+    .btn:active { transform: scale(0.96); }
+
+    .btn-start {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #0f0f1a;
+    }
+
+    .btn-stop {
+      background: rgba(239,83,80,0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239,83,80,0.3);
+    }
+
+    .btn-reset {
+      background: rgba(121,134,203,0.15);
+      color: var(--sub);
+      border: 1px solid rgba(121,134,203,0.2);
+      flex: 0 0 auto;
+      padding: 16px 20px;
+    }
+
+    /* History */
+    .section-title {
+      padding: 4px 20px 10px;
+      font-size: 0.7rem;
+      letter-spacing: 2px;
+      color: var(--sub);
+      text-transform: uppercase;
+    }
+
+    .history-list {
+      margin: 0 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-item {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid rgba(79,195,247,0.06);
+    }
+
+    .history-date { font-size: 0.75rem; color: var(--sub); }
+    .history-steps {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    .bar {
+      height: 4px;
+      background: rgba(79,195,247,0.1);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      transition: width 0.4s;
+    }
+
+    /* Status banner */
+    .status-banner {
+      margin: 0 20px 12px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      text-align: center;
+      display: none;
+    }
+
+    .status-banner.warn {
+      background: rgba(255,193,7,0.1);
+      border: 1px solid rgba(255,193,7,0.3);
+      color: #ffc107;
+      display: block;
+    }
+
+    .status-banner.active {
+      background: rgba(102,187,106,0.1);
+      border: 1px solid rgba(102,187,106,0.3);
+      color: var(--success);
+      display: block;
+    }
+
+    /* Goal setting */
+    .goal-row {
+      margin: 0 20px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .goal-row label { font-size: 0.75rem; color: var(--sub); white-space: nowrap; }
+
+    .goal-row input {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid rgba(79,195,247,0.2);
+      border-radius: 10px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: 'Bebas Neue', sans-serif;
+      letter-spacing: 1px;
+    }
+
+    .goal-row input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .pulse {
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .ios-hint {
+      margin: 0 20px 24px;
+      padding: 12px 14px;
+      background: rgba(167,139,250,0.08);
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 12px;
+      font-size: 0.72rem;
+      color: var(--sub);
+      line-height: 1.6;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PEDOMETER</h1>
+  <div class="date-label" id="dateLabel"></div>
+</header>
+
+<div class="status-banner" id="statusBanner"></div>
+
+<div class="main-card">
+  <div class="ring-wrap">
+    <svg viewBox="0 0 200 200">
+      <defs>
+        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#4fc3f7"/>
+          <stop offset="100%" stop-color="#a78bfa"/>
+        </linearGradient>
+      </defs>
+      <circle class="ring-bg" cx="100" cy="100" r="90"/>
+      <circle class="ring-fill" id="ringFill" cx="100" cy="100" r="90"/>
+    </svg>
+    <div class="ring-center">
+      <div class="step-count" id="stepCount">0</div>
+      <div class="step-label">STEPS</div>
+    </div>
+  </div>
+  <div class="goal-text">目標 <span id="goalDisplay">8,000</span> 歩 達成率 <span id="pctDisplay">0</span>%</div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-icon">🔥</div>
+    <div class="stat-value" id="calVal">0</div>
+    <div class="stat-unit">kcal</div>
+    <div class="stat-name">消費カロリー</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📍</div>
+    <div class="stat-value" id="distVal">0.00</div>
+    <div class="stat-unit">km</div>
+    <div class="stat-name">距離</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">⏱</div>
+    <div class="stat-value" id="timeVal">0:00</div>
+    <div class="stat-unit"></div>
+    <div class="stat-name">活動時間</div>
+  </div>
+</div>
+
+<div class="goal-row">
+  <label>目標歩数</label>
+  <input type="number" id="goalInput" value="8000" min="100" max="100000" step="100">
+</div>
+
+<div class="controls">
+  <button class="btn btn-start" id="startBtn" onclick="startCounting()">計測 スタート</button>
+  <button class="btn btn-stop" id="stopBtn" onclick="stopCounting()" style="display:none">■ 停止</button>
+  <button class="btn btn-reset" onclick="resetCounting()">リセット</button>
+</div>
+
+<div class="ios-hint" id="iosHint">
+  💡 <strong>iOSでの使い方：</strong><br>
+  「スタート」を押すとモーションの許可を求めます。「許可」を選んでください。<br>
+  ホーム画面に追加すると、アプリのように使えます（Safari → 共有 → ホーム画面に追加）。
+</div>
+
+<div class="section-title">過去7日間</div>
+<div class="history-list" id="historyList"></div>
+
+<script>
+  // ── State ──
+  let steps = 0;
+  let isRunning = false;
+  let startTime = null;
+  let timerInterval = null;
+  let goal = 8000;
+
+  // Accelerometer step detection
+  let lastAcc = null;
+  let lastStepTime = 0;
+  const STEP_THRESHOLD = 1.2;   // m/s² delta to count a step
+  const STEP_COOLDOWN = 300;    // ms between steps
+
+  // ── Init ──
+  updateDate();
+  loadToday();
+  renderHistory();
+  updateGoalDisplay();
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIOS) document.getElementById('iosHint').style.display = 'block';
+
+  // ── Date ──
+  function updateDate() {
+    const d = new Date();
+    const days = ['日','月','火','水','木','金','土'];
+    document.getElementById('dateLabel').textContent =
+      `${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+  }
+
+  // ── Goal ──
+  document.getElementById('goalInput').addEventListener('change', e => {
+    goal = Math.max(100, parseInt(e.target.value) || 8000);
+    e.target.value = goal;
+    updateGoalDisplay();
+    updateRing();
+  });
+
+  function updateGoalDisplay() {
+    goal = parseInt(document.getElementById('goalInput').value) || 8000;
+    document.getElementById('goalDisplay').textContent = goal.toLocaleString();
+  }
+
+  // ── Start / Stop / Reset ──
+  async function startCounting() {
+    if (isRunning) return;
+
+    // iOS 13+ requires permission for DeviceMotionEvent
+    if (typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        const perm = await DeviceMotionEvent.requestPermission();
+        if (perm !== 'granted') {
+          showBanner('モーションセンサーの許可が必要です。', 'warn');
+          return;
+        }
+      } catch(e) {
+        showBanner('センサーの許可取得に失敗しました。', 'warn');
+        return;
+      }
+    }
+
+    if (!window.DeviceMotionEvent) {
+      showBanner('このデバイスはモーションセンサーに対応していません。', 'warn');
+      return;
+    }
+
+    isRunning = true;
+    startTime = Date.now();
+    lastAcc = null;
+
+    window.addEventListener('devicemotion', onMotion);
+
+    timerInterval = setInterval(updateTimer, 1000);
+
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'block';
+    showBanner('計測中… 🚶 歩いてください', 'active');
+  }
+
+  function stopCounting() {
+    if (!isRunning) return;
+    isRunning = false;
+
+    window.removeEventListener('devicemotion', onMotion);
+    clearInterval(timerInterval);
+
+    document.getElementById('startBtn').style.display = 'block';
+    document.getElementById('stopBtn').style.display = 'none';
+    showBanner('停止しました', 'warn');
+
+    saveToday();
+    renderHistory();
+  }
+
+  function resetCounting() {
+    stopCounting();
+    steps = 0;
+    startTime = null;
+    updateUI();
+    showBanner('リセットしました', 'warn');
+    saveToday();
+    renderHistory();
+  }
+
+  // ── Motion handler ──
+  function onMotion(e) {
+    const acc = e.accelerationIncludingGravity;
+    if (!acc) return;
+
+    const ax = acc.x || 0, ay = acc.y || 0, az = acc.z || 0;
+    const mag = Math.sqrt(ax*ax + ay*ay + az*az);
+
+    if (lastAcc !== null) {
+      const delta = Math.abs(mag - lastAcc);
+      const now = Date.now();
+      if (delta > STEP_THRESHOLD && now - lastStepTime > STEP_COOLDOWN) {
+        steps++;
+        lastStepTime = now;
+        updateUI();
+      }
+    }
+    lastAcc = mag;
+  }
+
+  // ── UI Updates ──
+  function updateUI() {
+    document.getElementById('stepCount').textContent = steps.toLocaleString();
+    const pct = Math.min(100, Math.round(steps / goal * 100));
+    document.getElementById('pctDisplay').textContent = pct;
+
+    // Ring (circumference 565 for r=90)
+    const dashOffset = 565 - (565 * pct / 100);
+    document.getElementById('ringFill').style.strokeDashoffset = dashOffset;
+
+    // Calories: ~0.04 kcal per step (avg body)
+    document.getElementById('calVal').textContent = Math.round(steps * 0.04);
+
+    // Distance: avg stride 0.75m
+    const km = (steps * 0.75 / 1000).toFixed(2);
+    document.getElementById('distVal').textContent = km;
+  }
+
+  function updateTimer() {
+    if (!startTime) return;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    document.getElementById('timeVal').textContent = `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function updateRing() { updateUI(); }
+
+  function showBanner(msg, type) {
+    const b = document.getElementById('statusBanner');
+    b.textContent = msg;
+    b.className = 'status-banner ' + type;
+    if (type === 'warn') {
+      setTimeout(() => b.className = 'status-banner', 3000);
+    }
+  }
+
+  // ── Persistence ──
+  function todayKey() {
+    const d = new Date();
+    return `steps_${d.getFullYear()}_${d.getMonth()+1}_${d.getDate()}`;
+  }
+
+  function saveToday() {
+    localStorage.setItem(todayKey(), JSON.stringify({ steps, goal }));
+  }
+
+  function loadToday() {
+    const data = localStorage.getItem(todayKey());
+    if (data) {
+      const parsed = JSON.parse(data);
+      steps = parsed.steps || 0;
+      if (parsed.goal) {
+        goal = parsed.goal;
+        document.getElementById('goalInput').value = goal;
+      }
+      updateUI();
+    }
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '';
+    const days = ['日','月','火','水','木','金','土'];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = `steps_${d.getFullYear()}_${d.getMonth()+1}_${d.getDate()}`;
+      const raw = localStorage.getItem(key);
+      const data = raw ? JSON.parse(raw) : { steps: 0, goal: 8000 };
+      const s = data.steps || 0;
+      const g = data.goal || 8000;
+      const pct = Math.min(100, Math.round(s / g * 100));
+      const label = i === 0 ? '今日' : `${d.getMonth()+1}/${d.getDate()}（${days[d.getDay()]}）`;
+
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.innerHTML = `
+        <div>
+          <div class="history-date">${label}</div>
+          <div class="bar" style="width:120px"><div class="bar-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div style="text-align:right">
+          <div class="history-steps">${s.toLocaleString()}</div>
+          <div class="stat-unit">${pct}%</div>
+        </div>
+      `;
+      list.appendChild(item);
+    }
+  }
+  // ── Service Worker ──
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
